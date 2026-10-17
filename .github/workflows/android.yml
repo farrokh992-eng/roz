@@ -2,26 +2,31 @@ name: Build Rooznegaar APK
 
 on:
   push:
-    branches: [main, master]
-    tags: ["v*"]
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -32,17 +37,25 @@ jobs:
           sdkmanager --install "platforms;android-35"
           sdkmanager --install "build-tools;35.0.0"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
+      - name: Grant Gradle permission
+        run: |
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+          fi
 
-      - name: Build APK
-        run: gradle --no-daemon assembleDebug
+      - name: Build debug APK
+        run: |
+          if [ -f ./gradlew ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            echo "ERROR: gradlew was not found in the repository root."
+            exit 1
+          fi
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Rooznegaar-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Rooznegaar-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
